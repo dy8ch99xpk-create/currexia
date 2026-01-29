@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Currexia — Bundle</title>
+  <meta name="description" content="Currexia bundled update: AI summaries + converter" />
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#06b6d4;--glass: rgba(255,255,255,0.03)}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0;background:linear-gradient(180deg,var(--bg),#071021);color:#e6eef6}
+    .wrap{max-width:980px;margin:32px auto;padding:20px}
+    header{display:flex;align-items:center;gap:12px}
+    header h1{margin:0;font-size:20px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-top:18px}
+    .card{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .muted{color:var(--muted);font-size:13px}
+    button{background:var(--accent);color:#022;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .ai-updates{display:flex;flex-direction:column;gap:8px}
+    .ai-item{border-radius:8px;padding:8px;background:var(--glass)}
+    .converter-row{display:flex;gap:8px;align-items:center}
+    input,select{background:#071123;border:1px solid rgba(255,255,255,0.03);color:inherit;padding:8px;border-radius:8px}
+    footer{margin-top:24px;text-align:center;color:var(--muted);font-size:13px}
+    small.warn{color:#ffb4b4}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden><rect width="24" height="24" rx="6" fill="#06b6d4"/><text x="12" y="16" text-anchor="middle" font-size="12" fill="#012">C</text></svg>
+    <div>
+      <h1>Currexia — Single-file bundle</h1>
+      <div class="muted">Drop this file into your repo (Add file → Upload files) or replace your index.html</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <main>
+      <section class="card">
+        <h2>AI Updates</h2>
+        <div class="muted">This widget reads <code>updates.json</code> in the repo root (if present).</div>
+        <div id="ai" class="ai-updates" aria-live="polite">
+          <div class="muted">Loading updates...</div>
+        </div>
+        <div style="margin-top:8px" class="muted">If you use the GitHub Actions workflows they will write `updates.json` automatically.</div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h2>Currency Converter</h2>
+        <div class="muted">Live rates from exchangerate.host (no API key).</div>
+        <div style="margin-top:8px" class="converter-row">
+          <input id="amount" type="number" value="1" style="width:110px" />
+          <select id="from"></select>
+          <div style="width:24px;text-align:center">→</div>
+          <select id="to"></select>
+          <button id="convert">Convert</button>
+        </div>
+        <div id="result" style="margin-top:10px" class="muted">—</div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h2>Quick Notes</h2>
+        <ul class="muted">
+          <li>To enable scheduled AI updates, keep your `.github/workflows/*.yml` as-is in the repo.</li>
+          <li>Netlify will auto-deploy when branches are updated by Actions.</li>
+        </ul>
+      </section>
+
+    </main>
+
+    <aside>
+      <div class="card">
+        <h3>Actions status (after push)</h3>
+        <div class="muted">Push this file and then check GitHub Actions → Workflows to run the scheduled generator.</div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Security</h3>
+        <div class="muted">Do not paste private tokens or private keys in chat. Revoke any exposed tokens immediately.</div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <div class="muted">Currexia bundle — ready to upload. <small class="warn">Remember to revoke any exposed PATs.</small></div>
+  </footer>
+</div>
+
+<script>
+  // AI updates: try to fetch updates.json in repo root
+  async function loadAI() {
+    const el = document.getElementById('ai');
+    try {
+      const resp = await fetch('./updates.json', {cache: 'no-store'});
+      if (!resp.ok) throw new Error('no updates.json');
+      const data = await resp.json();
+      el.innerHTML = '';
+      if (!data || !data.updates || data.updates.length===0) {
+        el.innerHTML = '<div class="muted">No updates found in updates.json yet.</div>';
+        return;
+      }
+      data.updates.slice().reverse().slice(0,5).forEach(u => {
+        const d = document.createElement('div'); d.className='ai-item';
+        d.innerHTML = `<strong class="muted">${u.title||u.date||'Update'}</strong><div style="margin-top:6px">${(u.summary||u.text||'No summary').slice(0,120)}</div>`;
+        el.appendChild(d);
+      });
+    } catch(e) {
+      el.innerHTML = '<div class="muted">updates.json not found — generator not run yet.</div>';
+    }
+  }
+  loadAI();
+
+  // Converter: populate currencies and convert using exchangerate.host
+  async function populateCurrencies(){
+    const from = document.getElementById('from');
+    const to = document.getElementById('to');
+    try{
+      const r = await fetch('https://api.exchangerate.host/symbols');
+      const j = await r.json();
+      const symbols = Object.keys(j.symbols||{}).slice(0,60);
+      symbols.forEach(s=>{
+        const o1 = document.createElement('option'); o1.value=s; o1.textContent = s; from.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value=s; o2.textContent = s; to.appendChild(o2);
+      });
+      from.value='USD'; to.value='EUR';
+    }catch(err){
+      from.innerHTML='<option>USD</option>';to.innerHTML='<option>EUR</option>';
+    }
+  }
+  async function convert(){
+    const a = Number(document.getElementById('amount').value)||1;
+    const f = document.getElementById('from').value;
+    const t = document.getElementById('to').value;
+    const resEl = document.getElementById('result');
+    resEl.textContent = 'Fetching…';
+    try{
+      const r = await fetch(`https://api.exchangerate.host/convert?from=${f}&to=${t}&amount=${a}`);
+      const j = await r.json();
+      if (j && j.result!=null) resEl.textContent = `${a} ${f} = ${j.result.toFixed(6)} ${t}`;
+      else resEl.textContent = 'Conversion failed';
+    }catch(e){ resEl.textContent = 'Network error'; }
+  }
+  document.getElementById('convert').addEventListener('click',convert);
+  populateCurrencies();
+</script>
+</body>
+</html>
