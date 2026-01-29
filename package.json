@@ -1,0 +1,12 @@
+{
+  "name": "market-news-website",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "generate:daily": "node scripts/generate-update.js daily",
+    "generate:weekly": "node scripts/generate-update.js weekly"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
